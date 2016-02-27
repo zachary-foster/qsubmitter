@@ -5,18 +5,21 @@
 #'
 #' @param command (\code{character}) One or more commands to run
 #' @param parallel (\code{logical} of length 1)
+#'
+#' @export
 qsubmit <- function(command, remote, user, port = 22, parallel = FALSE, runtime_folder = NULL, working_dir = "~") {
   first_call <- strsplit(command[1], " ")[[1]][1]
   if (is.null(runtime_folder)) {
-    runtime_folder <- paste0(first_call, "_runtime_output")
+    runtime_folder <- file.path(working_dir, paste0(first_call, "_runtime_output"))
   }
 
   ssh_command(paste("mkdir", runtime_folder), remote, user, port)
 
-  script_text <- make_submit_script(ommand, parallel = parallel, out_file = runtime_folder,
+  script_text <- make_submit_script(command, parallel = parallel, out_file = runtime_folder,
                                     err_file = runtime_folder)
   script_path <- file.path(working_dir, paste0(first_call, "_submit.sh"))
-  paste0("printf '", script_text, "' > ", script_path)
+  save_script_call <- paste0("printf '", script_text, "' > ", script_path)
+  ssh_command(save_script_call, remote, user, port)
 
   qsub_call <- paste("qsub", script_path)
   ssh_command(qsub_call, remote, user, port)
@@ -35,8 +38,8 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
   if (is.null(name)) {
     name <- paste0(first_call, "_job")
   }
-  command <- gsub(command, pattern = "`", replacement = "`", fixed = TRUE)
-  command <- gsub(command, pattern = "`", replacement = "`", fixed = TRUE)
+  command <- gsub(command, pattern = "'", replacement = "`", fixed = TRUE)
+  command <- gsub(command, pattern = '"', replacement = "`", fixed = TRUE)
 
   header <- paste0("#!/bin/bash
 #$ -cwd
@@ -52,7 +55,7 @@ echo -n "Running on: "
 hostname
 echo "SGE job id: $JOB_ID"
 date
-COMMANDS=(', paste0('"', paste(command, collapse = '" "'), '"'), ')
+COMMANDS=(', paste0('`', paste(command, collapse = '` `'), '`'), ')
 ')
 
 if (parallel) {
@@ -71,6 +74,9 @@ done
 
 
 ssh_command <- function(command, remote, user, port = 22) {
+  command <- gsub(command, pattern = "'", replacement = "\\'", fixed = TRUE)
+  command <- gsub(command, pattern = '"', replacement = '\\"', fixed = TRUE)
+
   ssh_call <- c("ssh", paste0(user, "@", remote), "-p", port, "-t", paste0('"', command, '"'))
   ssh_call <- paste(ssh_call, collapse = " ")
   system(ssh_call, ignore.stderr = TRUE)
