@@ -291,7 +291,7 @@ qstat <- function(remote) {
     split_data <- lapply(content, prepare_row)
     data <- data.frame(do.call(rbind, split_data))
   }
-  colnames(data) <- c("job-ID", "prior", "name", "user", "state", "submit/start at",
-                      "queue", "slots", "ja-task-ID")
+  colnames(data) <- c("job_id", "prior", "name", "user", "state", "submit_time",
+                      "queue", "slots", "task_id")
   invisible(data)
 }
