@@ -4,12 +4,23 @@
 \alias{ssh_command}
 \title{Run a commmand on a remote server}
 \usage{
-ssh_command(command, remote, quote = "'")
+ssh_command(command, remote, quiet = FALSE, stderr = FALSE, prompt = NULL)
 }
 \arguments{
 \item{command}{(\code{character}) The command to run}
 
-\item{remote}{(\code{\link{remote}})}
+\item{remote}{(\code{\link{remote_server}}) The remote server information.}
+
+\item{stderr}{Passed to the \code{stderr} argument of \code{\link{system2}}.
+If \code{TRUE}, Mix in standard error with output.}
+
+\item{prompt}{(\code{character} of length 1) Character to display in front of commands.
+Defualt: timestamp.}
+
+\item{quite}{(\code{logical} of length 1) Supress messeges.}
+}
+\value{
+(\code{character}) The standard output of the command.
 }
 \description{
 Run a commmand on a remote server using ssh.

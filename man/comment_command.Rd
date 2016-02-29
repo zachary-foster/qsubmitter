@@ -4,15 +4,18 @@
 \alias{comment_command}
 \title{Prepare a command to be an argument}
 \usage{
-comment_command(command, quote = "'")
+comment_command(command, quote = NULL)
 }
 \arguments{
 \item{command}{(\code{character}) The command to convert.}
+
+\item{quote}{(\code{character} of length 1) What quote to use.
+Default: Choose quote type based on quote types in command.}
 }
 \value{
 (\code{character})
 }
 \description{
-Prepare a command to be an argument
+Prepare a command to be the argument of another command.
 }
 

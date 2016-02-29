@@ -4,14 +4,29 @@
 #' It assumes password-less ssh keys are set up.
 #'
 #' @param command (\code{character}) One or more commands to run
-#' @param remote (\code{\link{remote}})
-#' @param parallel (\code{logical} of length 1)
+#' @param remote (\code{\link{remote_server}}) The remote server information.
+#' @param parallel (\code{logical} of length 1) If \code{TRUE}, run jobs in parallel.
+#' Default: \code{FALSE}
+#' @param remote_cwd (\code{character} of length 1)
+#' What to set the current working directory to on the remote server before running jobs.
+#' Default: The home directory on the remote server.
+#' @param runtime_folder (\code{character} of length 1)
+#' The location to save the runtime error, output, and qsub submission script.
+#' Default: A unique name with timestamp, random string, and first command in job.
 #'
 #' @export
-qsubmit <- function(command, remote, parallel = FALSE, remote_cwd = NULL, runtime_folder = NULL) {
+#'
+#' @examples
+#' \dontrun{
+#'
+#' remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", port = 345)
+#' qsub(c('echo "test 1" > test1.txt', 'echo "test 2" > test2.txt'), remote, runtime_folder = "~/test/out")
+#' }
+qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL, runtime_folder = NULL) {
   timestamp <- gsub("[: -]+", replacement = "_", tolower(Sys.time()))
   first_call <- strsplit(command[1], " ")[[1]][1]
-  unique_prefix <- paste0(timestamp, "_", random_char(), "_", first_call, "_qsub")
+  random_id <- random_char(6)
+  unique_prefix <- paste0("qsub_", timestamp, "_", random_char(), "_", first_call)
   if (is.null(remote_cwd)) {
     remote_cwd <- ssh_command("echo $HOME", remote)
   }
@@ -28,7 +43,8 @@ qsubmit <- function(command, remote, parallel = FALSE, remote_cwd = NULL, runtim
 
   # Make submit script ----------------------------------------------------------------------------
   script_text <- make_submit_script(command,  parallel = parallel,
-                                    out_file = runtime_path, err_file = runtime_path)
+                                    out_file = runtime_path, err_file = runtime_path,
+                                    name = paste0("job_", random_id))
   script_name <- paste0(unique_prefix, ".sh")
   local_path <- file.path(tempdir(), script_name)
   remote_path <- file.path(runtime_path, script_name)
@@ -40,9 +56,18 @@ qsubmit <- function(command, remote, parallel = FALSE, remote_cwd = NULL, runtim
   ssh_command(qsub_call, remote)
 }
 
-# remote <- remote_server$new(server = "shell.cgrb.oregonstate.edu", user = "fosterz", port = 732)
-# qsubmit(command = c("mkdir 'the test dir'", 'echo "sdf ds f" > test.txt'), remote, runtime_folder = "~/test/out")
 
+#' Make qsub submission script
+#'
+#' Makes the text for a qsub submission script.
+#'
+#' @param command (\code{character}) One or more commands to run
+#' @param parallel (\code{logical} of length 1) If \code{TRUE}, run jobs in parallel.
+#' @param out_file (\code{character} of length 1) Where job runtime output is stored.
+#' @param err_file (\code{character} of length 1) Where job error output is stored.
+#' @param name (\code{character} of length 1) The job name.
+#'
+#' @return  (\code{character} of length 1) The text for a qsub submission script.
 make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_file = NULL, name = NULL) {
   first_call <- strsplit(command[1], " ")[[1]][1]
   if (is.null(out_file)) {
@@ -83,39 +108,64 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
                      "date",
                      paste0('COMMANDS=(', paste(command, collapse = ' '), ')'),
                      execute)
-  # file_text <- gsub(file_text, pattern = "'", replacement = "\\'", fixed = TRUE)
-  # # file_text <- gsub(file_text, pattern = " ", replacement = "\\ ", fixed = TRUE)
-  # file_text <- gsub(file_text, pattern = '"', replacement = '\\"', fixed = TRUE)
   return(file_text)
 }
 
 
+#===================================================================================================
 #' Run a commmand on a remote server
 #'
 #' Run a commmand on a remote server using ssh.
 #'
 #' @param command (\code{character}) The command to run
-#' @param remote (\code{\link{remote}})
+#' @param remote (\code{\link{remote_server}}) The remote server information.
+#' @param quite (\code{logical} of length 1) Supress messeges.
+#' @param stderr Passed to the \code{stderr} argument of \code{\link{system2}}.
+#' If \code{TRUE}, Mix in standard error with output.
+#' @param prompt (\code{character} of length 1) Character to display in front of commands.
+#' Defualt: timestamp.
+#'
+#' @return  (\code{character}) The standard output of the command.
 #'
 #' @export
-ssh_command <- function(command, remote, quote = "'") {
-  cat(paste0(">> ", command, "\n"))
-  command <- comment_command(command, quote)
-  ssh_call <- c("ssh", paste0(remote$user, "@", remote$server), "-p", remote$port, "-t -t", command)
-  ssh_call <- paste(ssh_call, collapse = " ")
-  result <- system(ssh_call, ignore.stderr = FALSE, intern = TRUE)
-  result <- gsub("^\\s+|\\s+$", "", result) # remove whitespace
-  cat(result)
-  return(result)
+#'
+#' @examples
+#' \dontrun{
+#'
+#' remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", port = 345)
+#' ssh_command(c('"echo test1", "echo test2"), remote)
+#' }
+ssh_command <- function(command, remote, quiet = FALSE, stderr = FALSE, prompt = NULL) {
+  do_one <- function(command) {
+    if (is.null(prompt)) {
+      time <- strsplit(as.character(Sys.time()), split = " ")[[1]][2]
+      prompt = paste0("[", time, "]$ ")
+    }
+    if (!quiet) { cat(paste0(prompt, command, "\n")) }
+    command <- comment_command(command)
+    ssh_args <- c(paste0(remote$user, "@", remote$server), "-p", remote$port, "-t -t", command)
+    result <- system2("ssh", ssh_args, stdout = TRUE, stderr = FALSE)
+    result <- gsub("^\\s+|\\s+$", "", result) # remove whitespace
+    if (!quiet) {
+      cat(paste0(result, "\n"))
+    }
+    return(result)
+  }
+  results <- lapply(command, do_one)
+  names(results) <- command
+  invisible(results)
 }
 
 
 
+#===================================================================================================
 #' Prepare a command to be an argument
 #'
-#' Prepare a command to be an argument
+#' Prepare a command to be the argument of another command.
 #'
 #' @param command (\code{character}) The command to convert.
+#' @param quote (\code{character} of length 1) What quote to use.
+#' Default: Choose quote type based on quote types in command.
 #'
 #' @return (\code{character})
 comment_command <- function(command, quote = NULL) {
@@ -141,6 +191,7 @@ comment_command <- function(command, quote = NULL) {
 
 
 
+#===================================================================================================
 #' Class for remote server
 #'
 #' @description Stores information needed to connect to a remote user
@@ -178,7 +229,7 @@ remote_server <- R6::R6Class("remote",
 #'
 #' @param file_paths (\code{character})
 #' Paths of files on the local machine for transfer.
-#' @param remote (\code{\link{remote}})
+#' @param remote (\code{\link{remote_server}}) The remote server information.
 #'
 #' @export
 rsync_push <- function(local_path, remote_path, remote) {
@@ -188,10 +239,59 @@ rsync_push <- function(local_path, remote_path, remote) {
 }
 
 
+#===================================================================================================
 #' Random character
 #'
 #' Make a random character of a specified length
+#'
+#' @param count (\code{numeric} of length 1) The length of the random string.
 random_char <- function(count = 5) {
   possible <- c(letters, 0:9)
   paste0(possible[sample(seq_along(possible), count)], collapse = "")
+}
+
+
+
+
+#' Return parsed qstat table
+#'
+#' Execute \code{qstat} and parse the qstat table output
+#'
+#' @param remote (\code{\link{remote_server}}) The remote server information.
+#'
+#' @export
+#'
+#' @return \code{data.frame}
+#'
+#' @examples
+#' \dontrun{
+#'
+#' remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", port = 345)
+#' qstat(remote)
+#' }
+qstat <- function(remote) {
+  prepare_row <- function(row) {
+    split_data <- strsplit(row, split = " +", perl = TRUE)[[1]]
+    split_data <- c(split_data[1:5], paste0(split_data[6:7], collapse = "-"), split_data[8:length(split_data)])
+    if (length(split_data) == 7) { # no queue assinged
+      split_data <- c(split_data[1:6], NA, split_data[7])
+    }
+    if (length(split_data) == 8) { # no task id defined
+      split_data <- c(split_data[1:8], NA)
+    }
+    return(split_data)
+  }
+
+  qstat_output <- ssh_command("qstat", remote)[[1]]
+  if (length(qstat_output) == 0) {
+    data <- data.frame(matrix(ncol = 9, nrow = 0))
+  } else {
+    header <- qstat_output[1]
+    content <- qstat_output[3:length(qstat_output)]
+    split_data <- lapply(content, prepare_row)
+    data <- data.frame(do.call(rbind, split_data))
+  }
+  colnames(data) <- c("job-ID", "prior", "name", "user", "state", "submit/start at",
+                      "queue", "slots", "ja-task-ID")
+  invisible(data)
 }
