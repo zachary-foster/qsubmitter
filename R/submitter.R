@@ -8,25 +8,35 @@
 #' @param parallel (\code{logical} of length 1)
 #'
 #' @export
-qsubmit <- function(command, remote, parallel = FALSE, runtime_folder = NULL) {
+qsubmit <- function(command, remote, parallel = FALSE, remote_cwd = NULL, runtime_folder = NULL) {
+  timestamp <- gsub("[: -]+", replacement = "_", tolower(Sys.time()))
   first_call <- strsplit(command[1], " ")[[1]][1]
+  unique_prefix <- paste0(timestamp, "_", random_char(), "_", first_call, "_qsub")
+  if (is.null(remote_cwd)) {
+    remote_cwd <- ssh_command("echo $HOME", remote)
+  }
   if (is.null(runtime_folder)) {
-    runtime_folder <- file.path("~", paste0(first_call, "_qsubmitter_runtime"))
+    runtime_folder <- unique_prefix
+  }
+  if (grepl("^/", runtime_folder)) { # is an absolute path
+    runtime_path <- runtime_folder
+  } else {
+    runtime_path <- file.path(remote_cwd, runtime_folder)
   }
   # Make remote output directory ------------------------------------------------------------------
-  ssh_command(paste("mkdir -p", runtime_folder), remote)
+  ssh_command(paste("mkdir -p", runtime_path), remote)
 
   # Make submit script ----------------------------------------------------------------------------
   script_text <- make_submit_script(command,  parallel = parallel,
-                                    out_file = runtime_folder, err_file = runtime_folder)
-  script_name <- paste0(first_call, "_submit.sh")
+                                    out_file = runtime_path, err_file = runtime_path)
+  script_name <- paste0(unique_prefix, ".sh")
   local_path <- file.path(tempdir(), script_name)
-  remote_path <- file.path(runtime_folder, script_name)
+  remote_path <- file.path(runtime_path, script_name)
   cat(script_text, file = local_path)
   rsync_push(local_path, remote_path, remote = remote)
 
   # Sumbit job ------------------------------------------------------------------------------------
-  qsub_call <- paste("cd", runtime_folder, ";", "qsub", remote_path)
+  qsub_call <- paste("cd", remote_cwd, ";", "qsub", remote_path)
   ssh_command(qsub_call, remote)
 }
 
@@ -89,11 +99,14 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
 #'
 #' @export
 ssh_command <- function(command, remote, quote = "'") {
+  cat(paste0(">> ", command, "\n"))
   command <- comment_command(command, quote)
-  ssh_call <- c("ssh", paste0(remote$user, "@", remote$server), "-p", remote$port, "-t", command)
+  ssh_call <- c("ssh", paste0(remote$user, "@", remote$server), "-p", remote$port, "-t -t", command)
   ssh_call <- paste(ssh_call, collapse = " ")
-  system(ssh_call, ignore.stderr = FALSE)
-  cat(command)
+  result <- system(ssh_call, ignore.stderr = FALSE, intern = TRUE)
+  result <- gsub("^\\s+|\\s+$", "", result) # remove whitespace
+  cat(result)
+  return(result)
 }
 
 
@@ -174,3 +187,11 @@ rsync_push <- function(local_path, remote_path, remote) {
   system(command)
 }
 
+
+#' Random character
+#'
+#' Make a random character of a specified length
+random_char <- function(count = 5) {
+  possible <- c(letters, 0:9)
+  paste0(possible[sample(seq_along(possible), count)], collapse = "")
+}
