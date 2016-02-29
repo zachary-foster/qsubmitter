@@ -13,20 +13,25 @@ qsubmit <- function(command, remote, parallel = FALSE, runtime_folder = NULL) {
   if (is.null(runtime_folder)) {
     runtime_folder <- file.path("~", paste0(first_call, "_qsubmitter_runtime"))
   }
+  # Make remote output directory ------------------------------------------------------------------
+  ssh_command(paste("mkdir -p", runtime_folder), remote)
 
-  ssh_command(paste("mkdir", runtime_folder), remote)
-
+  # Make submit script ----------------------------------------------------------------------------
   script_text <- make_submit_script(command,  parallel = parallel,
                                     out_file = runtime_folder, err_file = runtime_folder)
-  script_path <- file.path(runtime_folder, paste0(first_call, "_submit.sh"))
-  save_script_call <- paste0("echo '", script_text, "' > ", script_path)
-  ssh_command(save_script_call, remote, quote = "'")
+  script_name <- paste0(first_call, "_submit.sh")
+  local_path <- file.path(tempdir(), script_name)
+  remote_path <- file.path(runtime_folder, script_name)
+  cat(script_text, file = local_path)
+  rsync_push(local_path, remote_path, remote = remote)
 
-  qsub_call <- paste("qsub", script_path)
+  # Sumbit job ------------------------------------------------------------------------------------
+  qsub_call <- paste("cd", runtime_folder, ";", "qsub", remote_path)
   ssh_command(qsub_call, remote)
 }
 
-
+# remote <- remote_server$new(server = "shell.cgrb.oregonstate.edu", user = "fosterz", port = 732)
+# qsubmit(command = c("mkdir 'the test dir'", 'echo "sdf ds f" > test.txt'), remote, runtime_folder = "~/test/out")
 
 make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_file = NULL, name = NULL) {
   first_call <- strsplit(command[1], " ")[[1]][1]
@@ -40,16 +45,16 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
     name <- paste0(first_call, "_job")
   }
 
-  # command <- comment_command(command)
+  command <- comment_command(command)
 
   if (parallel) {
     execute <- "eval ${COMMANDS[$i]}"
   } else {
     execute <- paste(sep = "\n",
-                     "for index in ${COMMANDS[@]};",
+                     'for cmd in "${COMMANDS[@]}"',
                      "do",
-                     "eval ${COMMANDS[$index]}",
-                     "done")
+                     "    eval $cmd",
+                     "done\n")
   }
   file_text <- paste(sep = '\n',
                      "#!/bin/bash",
@@ -66,7 +71,7 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
                      "hostname",
                      'echo "SGE job id: $JOB_ID"',
                      "date",
-                     paste0('COMMANDS=("', paste(command, collapse = '" "'), '")'),
+                     paste0('COMMANDS=(', paste(command, collapse = ' '), ')'),
                      execute)
   # file_text <- gsub(file_text, pattern = "'", replacement = "\\'", fixed = TRUE)
   # # file_text <- gsub(file_text, pattern = " ", replacement = "\\ ", fixed = TRUE)
@@ -100,11 +105,25 @@ ssh_command <- function(command, remote, quote = "'") {
 #' @param command (\code{character}) The command to convert.
 #'
 #' @return (\code{character})
-comment_command <- function(command, quote = "'") {
-  command <- gsub(command, pattern = paste0("[^\\]", quote), replacement = paste0("\\", quote), fixed = TRUE)
-  command <- gsub(command, pattern = '[^\\]\n', replacement = '\\n', fixed = TRUE)
-  command <- paste0(quote, command, quote)
-  return(command)
+comment_command <- function(command, quote = NULL) {
+  do_one <- function(command, quote) {
+    if (is.null(quote)) {
+      if (grepl("'", command) && ! grepl('"', command)) { # command has only single quotes
+        quote <- '"'
+      } else if (! grepl("'", command) && grepl('"', command)) { # command has only double quotes
+        quote <- "'"
+      } else if (! grepl("'", command) && ! grepl('"', command)) { # does not have either quote type
+        quote <- "'"
+      } else { # has both quote types
+        quote <- "'"
+        command <- gsub(command, pattern = paste0("[^\\]", quote), replacement = paste0("\\", quote), fixed = TRUE)
+      }
+    }
+    command <- gsub(command, pattern = '[^\\]\n', replacement = '\\n', fixed = TRUE)
+    paste0(quote, command, quote)
+  }
+
+  vapply(command, do_one, character(1), quote = quote)
 }
 
 
@@ -135,3 +154,23 @@ remote_server <- R6::R6Class("remote",
                                }
                              )
 )
+
+
+
+
+#===================================================================================================
+#' Rsync files to remote server.
+#'
+#' Copys files to a remote server using rsync.
+#'
+#' @param file_paths (\code{character})
+#' Paths of files on the local machine for transfer.
+#' @param remote (\code{\link{remote}})
+#'
+#' @export
+rsync_push <- function(local_path, remote_path, remote) {
+  command <- paste0("rsync -avh -e 'ssh -p ", remote$port, "' ",
+                    paste(local_path, collapse = " "), " ", remote$user, "@", remote$server, ":", remote_path)
+  system(command)
+}
+
