@@ -325,24 +325,28 @@ qstat <- function(remote) {
 #'   f(a)
 #' })
 #' }
-remote_r <- function(remote, variables, expression, ...) {
+remote_r <- function(remote, variables = list(), expression, ...) {
   # Make lines to define variables
-  var_substitution <- substitute(variables)
-  temp_path <- tempfile()
-  on.exit(file.remove(temp_path))
-  lapply(seq_along(variables) + 1,
-         function(x) {
-           name <- deparse(var_substitution[[x]])
-           dump(name, file = temp_path, append = TRUE)
-         })
-  define_variables <- readLines(temp_path)
+  if (length(variables) > 0) {
+    var_substitution <- substitute(variables)
+    temp_path <- tempfile()
+    on.exit(file.remove(temp_path))
+    lapply(seq_along(variables) + 1,
+           function(x) {
+             name <- deparse(var_substitution[[x]])
+             dump(name, file = temp_path, append = TRUE)
+           })
+    define_variables <- readLines(temp_path)
+  } else {
+    define_variables <- c()
+  }
 
   # Make lines for the expression
   parsed_expression <- deparse(substitute(expression))
 
   exp_substitution <- substitute(expression)
-  parsed_expression <- vapply(2:length(exp_substitution),
-                              function(x) deparse(exp_substitution[[x]]), character(1))
+  parsed_expression <- unlist(lapply(2:length(exp_substitution),
+                              function(x) deparse(exp_substitution[[x]])))
 
   # Make lines for quitting R
   quit_r <- c("quit()")

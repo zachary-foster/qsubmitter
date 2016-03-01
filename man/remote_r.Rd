@@ -4,7 +4,7 @@
 \alias{remote_r}
 \title{Run R commands on remote server}
 \usage{
-remote_r(remote, variables, expression, ...)
+remote_r(remote, variables = list(), expression, ...)
 }
 \arguments{
 \item{remote}{(\code{\link{remote_server}}) The remote server information.}
