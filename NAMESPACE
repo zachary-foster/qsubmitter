@@ -2,6 +2,7 @@
 
 export(qstat)
 export(qsub)
+export(remote_r)
 export(remote_server)
 export(rsync_push)
 export(ssh_command)

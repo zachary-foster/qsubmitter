@@ -124,6 +124,7 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
 #' If \code{TRUE}, Mix in standard error with output.
 #' @param prompt (\code{character} of length 1) Character to display in front of commands.
 #' Defualt: timestamp.
+#' @param ... Passed to \code{\link{system2}}.
 #'
 #' @return  (\code{character}) The standard output of the command.
 #'
@@ -135,7 +136,7 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
 #' remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", port = 345)
 #' ssh_command(c('"echo test1", "echo test2"), remote)
 #' }
-ssh_command <- function(command, remote, quiet = FALSE, stderr = FALSE, prompt = NULL) {
+ssh_command <- function(command, remote, quiet = FALSE, stderr = FALSE, prompt = NULL, ...) {
   do_one <- function(command) {
     if (is.null(prompt)) {
       time <- strsplit(as.character(Sys.time()), split = " ")[[1]][2]
@@ -144,7 +145,7 @@ ssh_command <- function(command, remote, quiet = FALSE, stderr = FALSE, prompt =
     if (!quiet) { cat(paste0(prompt, command, "\n")) }
     command <- comment_command(command)
     ssh_args <- c(paste0(remote$user, "@", remote$server), "-p", remote$port, "-t -t", command)
-    result <- system2("ssh", ssh_args, stdout = TRUE, stderr = FALSE)
+    result <- system2("ssh", ssh_args, stdout = TRUE, stderr = FALSE, ...)
     result <- gsub("^\\s+|\\s+$", "", result) # remove whitespace
     if (!quiet) {
       cat(paste0(result, "\n"))
@@ -295,3 +296,60 @@ qstat <- function(remote) {
                       "queue", "slots", "task_id")
   invisible(data)
 }
+
+
+
+#' Run R commands on remote server
+#'
+#' Run R commands on remote server.
+#' Variables in the local envrioment can be transfered to the remote computer.
+#'
+#' @param remote (\code{\link{remote_server}}) The remote server information.
+#' @param variables (\code{list}) Variables that the \code{expression} relies on.
+#' Their content will be deparsed and transfered to the remote server.
+#' @param expression An expression to run on a remote server.
+#' @param ... Passed to \code{\link{ssh_command}}
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", port = 345)
+#' a = 1:10
+#' f = function(x) {
+#'   x = x + 2
+#'   x*2
+#' }
+#' remote_r(remote, list(a, f), {
+#'   a = a + 3
+#'   f(a)
+#' })
+#' }
+remote_r <- function(remote, variables, expression, ...) {
+  # Make lines to define variables
+  var_substitution <- substitute(variables)
+  temp_path <- tempfile()
+  on.exit(file.remove(temp_path))
+  lapply(seq_along(variables) + 1,
+         function(x) {
+           name <- deparse(var_substitution[[x]])
+           dump(name, file = temp_path, append = TRUE)
+         })
+  define_variables <- readLines(temp_path)
+
+  # Make lines for the expression
+  parsed_expression <- deparse(substitute(expression))
+
+  exp_substitution <- substitute(expression)
+  parsed_expression <- vapply(2:length(exp_substitution),
+                              function(x) deparse(exp_substitution[[x]]), character(1))
+
+  # Make lines for quitting R
+  quit_r <- c("quit()")
+
+  # Execute commands
+  input_lines <- c(define_variables, parsed_expression, quit_r)
+  invisible(ssh_command("R --vanilla --quiet", remote, input = input_lines, ...))
+}
+
+
