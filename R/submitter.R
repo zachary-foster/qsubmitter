@@ -13,6 +13,9 @@
 #' @param runtime_folder (\code{character} of length 1)
 #' The location to save the runtime error, output, and qsub submission script.
 #' Default: A unique name with timestamp, random string, and first command in job.
+#' @param wait (\code{logical} of length 1) If \code{TRUE}, the function will wait for all
+#' jobs to complete before exiting.
+#' Default: TRUE
 #'
 #' @export
 #'
@@ -22,11 +25,11 @@
 #' remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", port = 345)
 #' qsub(c('echo "test 1" > test1.txt', 'echo "test 2" > test2.txt'), remote, runtime_folder = "~/test/out")
 #' }
-qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL, runtime_folder = NULL) {
+qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL, runtime_folder = NULL, wait = TRUE) {
   timestamp <- gsub("[: -]+", replacement = "_", tolower(Sys.time()))
   first_call <- strsplit(command[1], " ")[[1]][1]
-  random_id <- random_char(6)
-  unique_prefix <- paste0("qsub_", timestamp, "_", random_char(), "_", first_call)
+  random_id <- random_char(7)
+  unique_prefix <- paste0("qsub_", timestamp, "_", random_id, "_", first_call)
   if (is.null(remote_cwd)) {
     remote_cwd <- ssh_command("echo $HOME", remote)
   }
@@ -42,9 +45,11 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL, runtime_f
   ssh_command(paste("mkdir -p", runtime_path), remote)
 
   # Make submit script ----------------------------------------------------------------------------
+  name_prefix <- "id_"
+  job_name <- paste0(name_prefix, random_id) # the id prefix is because qsub does not allow numbers to start a job name
   script_text <- make_submit_script(command,  parallel = parallel,
                                     out_file = runtime_path, err_file = runtime_path,
-                                    name = paste0("job_", random_id))
+                                    name =job_name)
   script_name <- paste0(unique_prefix, ".sh")
   local_path <- file.path(tempdir(), script_name)
   remote_path <- file.path(runtime_path, script_name)
@@ -54,6 +59,63 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL, runtime_f
   # Sumbit job ------------------------------------------------------------------------------------
   qsub_call <- paste("cd", remote_cwd, ";", "qsub", remote_path)
   ssh_command(qsub_call, remote)
+
+
+  # Wait for job(s) to complete -------------------------------------------------------------------
+  if (wait) {
+    wait_for_qsub(remote, job_name, quiet = FALSE)
+  }
+}
+
+
+#' Wait for qsub job
+#'
+#' Wait for qsub job to complete or fail.
+#'
+#' @param remote (\code{\link{remote_server}}) The remote server information.
+#' @param job_name (\code{character} of length 1) The name of the job.
+#' @param quiet (\code{logical} of length 1) Supress messeges.
+#' Default: TRUE
+#'
+#' @return NULL
+wait_for_qsub <- function(remote, job_name, quiet = TRUE) {
+  wait_time <- 4 # initial wait time
+  max_wait <- 600 # do not increase wait time after this point
+
+  for (unused_index in 1:10000) {
+    Sys.sleep(wait_time)
+    status <- qstat(remote, quiet = TRUE)
+    status <- status[status$name == job_name, ] # only consider jobs for this submission
+    state_key <- c(deleted = "d", error = "E", running = "r", restarted = "R", suspended = "sS",
+                   transfering = "t", threshold = "T", waiting = "w")
+    if (nrow(status) > 0) {
+      state_count <- vapply(state_key, FUN.VALUE = numeric(1),
+                            function(x) sum(grepl(status$state, paste0("[", x, "]+"))))
+
+    } else {
+      state_count <- setNames(rep(0, length(state_key)), names(state_key))
+    }
+    if (! quiet) {
+      displayed_count <- state_count[state_count > 0]
+      count_text <- paste(names(displayed_count), displayed_count, sep = ": ", collapse = ", ")
+      current_time <- format(Sys.time(),'%H:%M:%S')
+      cat(paste0(current_time, " - ", count_text, "\n"))
+    }
+
+    if (state_count[c("error")] > 0) {
+      stop(paste0("Job '", job_name, "' failed to execute."))
+    }
+
+    if (state_count[c("deleted")] > 0) {
+      warning(paste0("Job '", job_name, "' was deleted."))
+    }
+
+    if (sum(state_count[c("running", "waiting", "transfering")]) == 0) {
+      break()
+    }
+
+    if (wait_time < max_wait) { wait_time <- wait_time * 2 }
+  }
 }
 
 
@@ -119,7 +181,7 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
 #'
 #' @param command (\code{character}) The command to run
 #' @param remote (\code{\link{remote_server}}) The remote server information.
-#' @param quite (\code{logical} of length 1) Supress messeges.
+#' @param quiet (\code{logical} of length 1) Supress messeges.
 #' @param stderr Passed to the \code{stderr} argument of \code{\link{system2}}.
 #' If \code{TRUE}, Mix in standard error with output.
 #' @param prompt (\code{character} of length 1) Character to display in front of commands.
@@ -259,6 +321,8 @@ random_char <- function(count = 5) {
 #' Execute \code{qstat} and parse the qstat table output
 #'
 #' @param remote (\code{\link{remote_server}}) The remote server information.
+#' @param quiet (\code{logical} of length 1) Supress messeges.
+#' Default: \code{FALSE}
 #'
 #' @export
 #'
@@ -270,7 +334,7 @@ random_char <- function(count = 5) {
 #' remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", port = 345)
 #' qstat(remote)
 #' }
-qstat <- function(remote) {
+qstat <- function(remote, quiet = FALSE) {
   prepare_row <- function(row) {
     split_data <- strsplit(row, split = " +", perl = TRUE)[[1]]
     split_data <- c(split_data[1:5], paste0(split_data[6:7], collapse = "-"), split_data[8:length(split_data)])
@@ -283,7 +347,7 @@ qstat <- function(remote) {
     return(split_data)
   }
 
-  qstat_output <- ssh_command("qstat", remote)[[1]]
+  qstat_output <- ssh_command("qstat", remote, quiet = quiet)[[1]]
   if (length(qstat_output) == 0) {
     data <- data.frame(matrix(ncol = 9, nrow = 0))
   } else {

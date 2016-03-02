@@ -5,7 +5,7 @@
 \title{Submit jobs to qsub over ssh}
 \usage{
 qsub(command, remote, parallel = FALSE, remote_cwd = NULL,
-  runtime_folder = NULL)
+  runtime_folder = NULL, wait = TRUE)
 }
 \arguments{
 \item{command}{(\code{character}) One or more commands to run}
@@ -22,6 +22,10 @@ Default: The home directory on the remote server.}
 \item{runtime_folder}{(\code{character} of length 1)
 The location to save the runtime error, output, and qsub submission script.
 Default: A unique name with timestamp, random string, and first command in job.}
+
+\item{wait}{(\code{logical} of length 1) If \code{TRUE}, the function will wait for all
+jobs to complete before exiting.
+Default: TRUE}
 }
 \description{
 This function submits commands to qsub (SGE) over ssh.

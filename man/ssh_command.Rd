@@ -12,6 +12,8 @@ ssh_command(command, remote, quiet = FALSE, stderr = FALSE, prompt = NULL,
 
 \item{remote}{(\code{\link{remote_server}}) The remote server information.}
 
+\item{quiet}{(\code{logical} of length 1) Supress messeges.}
+
 \item{stderr}{Passed to the \code{stderr} argument of \code{\link{system2}}.
 If \code{TRUE}, Mix in standard error with output.}
 
@@ -19,8 +21,6 @@ If \code{TRUE}, Mix in standard error with output.}
 Defualt: timestamp.}
 
 \item{...}{Passed to \code{\link{system2}}.}
-
-\item{quite}{(\code{logical} of length 1) Supress messeges.}
 }
 \value{
 (\code{character}) The standard output of the command.

@@ -4,10 +4,13 @@
 \alias{qstat}
 \title{Return parsed qstat table}
 \usage{
-qstat(remote)
+qstat(remote, quiet = FALSE)
 }
 \arguments{
 \item{remote}{(\code{\link{remote_server}}) The remote server information.}
+
+\item{quiet}{(\code{logical} of length 1) Supress messeges.
+Default: \code{FALSE}}
 }
 \value{
 \code{data.frame}
