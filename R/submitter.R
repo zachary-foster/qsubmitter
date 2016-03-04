@@ -130,9 +130,12 @@ wait_for_qsub <- function(remote, job_id, quiet = TRUE) {
 #' @param out_file (\code{character} of length 1) Where job runtime output is stored.
 #' @param err_file (\code{character} of length 1) Where job error output is stored.
 #' @param name (\code{character} of length 1) The job name.
+#' @param cores (\code{numberic}) The number of cores to use.
+#' Default: 1
 #'
 #' @return  (\code{character} of length 1) The text for a qsub submission script.
-make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_file = NULL, name = NULL) {
+make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_file = NULL, name = NULL,
+                               cores = 1) {
   first_call <- strsplit(command[1], " ")[[1]][1]
   if (is.null(out_file)) {
     out_file <- paste0(first_call, "_out")
@@ -163,6 +166,7 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
                      paste0("#$ -N ", name),
                      paste0("#$ -o ", out_file),
                      paste0("#$ -e ", err_file),
+                     paste0("#$ -pe thread ", cores),
                      "#$ -V",
                      ifelse(parallel, paste0("#$ -t 1-", length(command), ":1"), ""),
                      ifelse(parallel, 'i=$(expr $SGE_TASK_ID - 1)', ""),
@@ -287,21 +291,6 @@ remote_server <- R6::R6Class("remote",
 
 
 
-#===================================================================================================
-#' Rsync files to remote server.
-#'
-#' Copys files to a remote server using rsync.
-#'
-#' @param file_paths (\code{character})
-#' Paths of files on the local machine for transfer.
-#' @param remote (\code{\link{remote_server}}) The remote server information.
-#'
-#' @export
-rsync_push <- function(local_path, remote_path, remote) {
-  command <- paste0("rsync -avh -e 'ssh -p ", remote$port, "' ",
-                    paste(local_path, collapse = " "), " ", remote$user, "@", remote$server, ":", remote_path)
-  system(command)
-}
 
 
 #===================================================================================================

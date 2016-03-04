@@ -5,7 +5,7 @@
 \title{Make qsub submission script}
 \usage{
 make_submit_script(command, parallel = FALSE, out_file = NULL,
-  err_file = NULL, name = NULL)
+  err_file = NULL, name = NULL, cores = 1)
 }
 \arguments{
 \item{command}{(\code{character}) One or more commands to run}
@@ -17,6 +17,9 @@ make_submit_script(command, parallel = FALSE, out_file = NULL,
 \item{err_file}{(\code{character} of length 1) Where job error output is stored.}
 
 \item{name}{(\code{character} of length 1) The job name.}
+
+\item{cores}{(\code{numberic}) The number of cores to use.
+Default: 1}
 }
 \value{
 (\code{character} of length 1) The text for a qsub submission script.
