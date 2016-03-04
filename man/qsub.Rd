@@ -5,7 +5,7 @@
 \title{Submit jobs to qsub over ssh}
 \usage{
 qsub(command, remote, parallel = FALSE, remote_cwd = NULL,
-  runtime_folder = NULL, wait = TRUE)
+  runtime_folder = "qsub_records", wait = TRUE)
 }
 \arguments{
 \item{command}{(\code{character}) One or more commands to run}

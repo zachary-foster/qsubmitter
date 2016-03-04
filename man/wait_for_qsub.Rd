@@ -4,12 +4,12 @@
 \alias{wait_for_qsub}
 \title{Wait for qsub job}
 \usage{
-wait_for_qsub(remote, job_name, quiet = TRUE)
+wait_for_qsub(remote, job_id, quiet = TRUE)
 }
 \arguments{
 \item{remote}{(\code{\link{remote_server}}) The remote server information.}
 
-\item{job_name}{(\code{character} of length 1) The name of the job.}
+\item{job_id}{(\code{character} of length 1) The id of the job.}
 
 \item{quiet}{(\code{logical} of length 1) Supress messeges.
 Default: TRUE}
