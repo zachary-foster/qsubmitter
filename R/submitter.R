@@ -89,7 +89,7 @@ wait_for_qsub <- function(remote, job_id, quiet = TRUE) {
                    transfering = "t", threshold = "T", waiting = "w")
     if (nrow(status) > 0) {
       state_count <- vapply(state_key, FUN.VALUE = numeric(1),
-                            function(x) sum(grepl(status$state, paste0("[", x, "]+"))))
+                            function(x) sum(grepl(status$state, pattern = paste0("[", x, "]+"))))
 
     } else {
       state_count <- setNames(rep(0, length(state_key)), names(state_key))
