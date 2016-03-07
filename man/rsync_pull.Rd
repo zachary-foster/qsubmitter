@@ -4,7 +4,7 @@
 \alias{rsync_pull}
 \title{Rsync files from remote server.}
 \usage{
-rsync_pull(local_path, remote_path, remote)
+rsync_pull(local_path, remote_path, remote, quiet = TRUE)
 }
 \arguments{
 \item{local_path}{(\code{character})
@@ -14,6 +14,9 @@ Paths of files on the local machine for transfer.}
 Paths of files on the remote machine for transfer.}
 
 \item{remote}{(\code{\link{remote_server}}) The remote server information.}
+
+\item{quiet}{(\code{logical} of length 1) Supress messeges.
+Default: TRUE}
 }
 \description{
 Copys files from a remote server using rsync.

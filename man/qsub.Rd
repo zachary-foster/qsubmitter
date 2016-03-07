@@ -5,7 +5,8 @@
 \title{Submit jobs to qsub over ssh}
 \usage{
 qsub(command, remote, parallel = FALSE, remote_cwd = NULL,
-  runtime_folder = "qsub_records", wait = TRUE)
+  runtime_folder = "qsub_records", wait = TRUE, cores = 1,
+  print_track = TRUE, print_info = TRUE)
 }
 \arguments{
 \item{command}{(\code{character}) One or more commands to run}
@@ -25,6 +26,15 @@ Default: A unique name with timestamp, random string, and first command in job.}
 
 \item{wait}{(\code{logical} of length 1) If \code{TRUE}, the function will wait for all
 jobs to complete before exiting.
+Default: TRUE}
+
+\item{cores}{(\code{numberic}) The number of cores to use.
+Default: 1}
+
+\item{print_track}{(\code{logical} of length 1) If \code{TRUE}, the progress of the jobs is periodically printed.
+Default: TRUE}
+
+\item{print_info}{(\code{logical} of length 1) If \code{TRUE}, information on the job is printed
 Default: TRUE}
 }
 \description{

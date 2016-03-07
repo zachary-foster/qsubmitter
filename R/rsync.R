@@ -8,12 +8,14 @@
 #' @param remote_path (\code{character})
 #' Paths of files on the remote machine for transfer.
 #' @param remote (\code{\link{remote_server}}) The remote server information.
+#' @param quiet (\code{logical} of length 1) Supress messeges.
+#' Default: TRUE
 #'
 #' @export
-rsync_push <- function(local_path, remote_path, remote) {
+rsync_push <- function(local_path, remote_path, remote, quiet = TRUE) {
   command <- paste0("rsync -avh -e 'ssh -p ", remote$port, "' ",
                     paste(local_path, collapse = " "), " ", remote$user, "@", remote$server, ":", remote_path)
-  system(command)
+  invisible(system(command, ignore.stdout = quiet, ignore.stderr = quiet))
 }
 
 
@@ -27,11 +29,13 @@ rsync_push <- function(local_path, remote_path, remote) {
 #' @param remote_path (\code{character})
 #' Paths of files on the remote machine for transfer.
 #' @param remote (\code{\link{remote_server}}) The remote server information.
+#' @param quiet (\code{logical} of length 1) Supress messeges.
+#' Default: TRUE
 #'
 #' @export
-rsync_pull <- function(local_path, remote_path, remote) {
+rsync_pull <- function(local_path, remote_path, remote, quiet = TRUE) {
   command <- paste0("rsync -avh -e 'ssh -p ", remote$port, "' ",
                     remote$user, "@", remote$server, ":", remote_path, " ",
                     local_path)
-  system(command)
+  system(command, ignore.stdout = quiet, ignore.stderr = quiet)
 }

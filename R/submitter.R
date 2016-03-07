@@ -16,7 +16,12 @@
 #' @param wait (\code{logical} of length 1) If \code{TRUE}, the function will wait for all
 #' jobs to complete before exiting.
 #' Default: TRUE
-#'
+#' @param cores (\code{numberic}) The number of cores to use.
+#' Default: 1
+#' @param print_track (\code{logical} of length 1) If \code{TRUE}, the progress of the jobs is periodically printed.
+#' Default: TRUE
+#' @param print_info (\code{logical} of length 1) If \code{TRUE}, information on the job is printed
+#' Default: TRUE
 #' @export
 #'
 #' @examples
@@ -26,10 +31,12 @@
 #' qsub(c('echo "test 1" > test1.txt', 'echo "test 2" > test2.txt'), remote, runtime_folder = "~/test/out")
 #' }
 qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
-                 runtime_folder = "qsub_records", wait = TRUE) {
+                 runtime_folder = "qsub_records", wait = TRUE, cores = 1,
+                 print_track = TRUE, print_info = TRUE) {
+
   first_call <- strsplit(command[1], " ")[[1]][1]
   if (is.null(remote_cwd)) {
-    remote_cwd <- ssh_command("echo $HOME", remote)
+    remote_cwd <- ssh_command("echo $HOME", remote, quiet = TRUE)
   }
   if (grepl("^/", runtime_folder)) { # is an absolute path
     runtime_path <- runtime_folder
@@ -37,32 +44,51 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
     runtime_path <- file.path(remote_cwd, runtime_folder)
   }
   # Make remote output directory ------------------------------------------------------------------
-  ssh_command(paste("mkdir -p", runtime_path), remote)
+  ssh_command(paste("mkdir -p", runtime_path), remote, quiet = TRUE)
 
   # Make submit script ----------------------------------------------------------------------------
   script_text <- make_submit_script(command,  parallel = parallel,
                                     out_file = runtime_path, err_file = runtime_path,
-                                    name = first_call)
+                                    name = first_call, cores = cores)
   script_name <-  paste0("qsub_", random_char(7), "_", first_call, ".sh")
   local_path <- file.path(tempdir(), script_name)
   remote_path <- file.path(runtime_path, script_name)
   cat(script_text, file = local_path)
   rsync_push(local_path, remote_path, remote = remote)
 
+
   # Sumbit job ------------------------------------------------------------------------------------
   qsub_call <- paste("cd", remote_cwd, ";", "qsub", remote_path)
-  ssh_result <- ssh_command(qsub_call, remote)
+  ssh_result <- ssh_command(qsub_call, remote, quiet = TRUE)
+  job_id <- stringr::str_match(ssh_result[[1]][2], "Your job ([0-9]+) ")[1,2]
 
   # Rename submission script ----------------------------------------------------------------------
-  job_id <- stringr::str_match(ssh_result[[1]][2], "Your job ([0-9]+) ")[1,2]
   new_script_name <- paste0(first_call, ".i", job_id, ".sh")
   new_remote_path <-  file.path(runtime_path, new_script_name)
-  ssh_command(paste("mv", remote_path, new_remote_path), remote)
+  ssh_command(paste("mv", remote_path, new_remote_path), remote, quiet = TRUE)
+
+  # Print info ------------------------------------------------------------------------------------
+  if (print_info) {
+    message(paste0("Job ", job_id," sumbitted."))
+    message(paste("Submission script:", new_remote_path))
+    message(paste("Current working directory:", remote_cwd))
+    start_time <- Sys.time()
+    message(paste0("Started: ", start_time))
+  }
 
   # Wait for job(s) to complete -------------------------------------------------------------------
   if (wait) {
-    wait_for_qsub(remote, job_id, quiet = FALSE)
+    wait_for_qsub(remote, job_id, quiet = ! print_track)
+    if (print_info) {
+      end_time <- Sys.time()
+      run_time <- end_time - start_time
+      message(paste("Finished:", end_time))
+      message(paste("Duration:", round(run_time), units(run_time)))
+    }
   }
+
+  # Return job id ---------------------------------------------------------------------------------
+  return(invisible(job_id))
 }
 
 
@@ -77,9 +103,9 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
 #'
 #' @return NULL
 wait_for_qsub <- function(remote, job_id, quiet = TRUE) {
-  wait_time <- 10 # initial wait time
-  wait_increase <- 1.3 # Amount to increase wait time by each check
-  max_wait <- 60*60 # do not increase wait time after this point
+  wait_time <- 5 # initial wait time
+  wait_increase <- 1.5 # Amount to increase wait time by each check
+  max_wait <- 60*10 # do not increase wait time after this point
 
   for (unused_index in 1:10000) {
     Sys.sleep(wait_time)
@@ -101,7 +127,7 @@ wait_for_qsub <- function(remote, job_id, quiet = TRUE) {
         count_text <- "All jobs complete"
       }
       current_time <- Sys.time()
-      cat(paste0(current_time, " - ", count_text, "\n"))
+      message(paste0(current_time, " - ", count_text))
     }
 
     if (state_count[c("error")] > 0) {
@@ -210,13 +236,13 @@ ssh_command <- function(command, remote, quiet = FALSE, stderr = FALSE, prompt =
       time <- strsplit(as.character(Sys.time()), split = " ")[[1]][2]
       prompt = paste0("[", time, "]$ ")
     }
-    if (!quiet) { cat(paste0(prompt, command, "\n")) }
+    if (!quiet) { message(paste0(prompt, command, "\n")) }
     command <- comment_command(command)
     ssh_args <- c(paste0(remote$user, "@", remote$server), "-p", remote$port, "-t -t", command)
     result <- system2("ssh", ssh_args, stdout = TRUE, stderr = FALSE, ...)
     result <- gsub("^\\s+|\\s+$", "", result) # remove whitespace
     if (!quiet) {
-      cat(paste0(result, "\n"))
+      message(paste0(result, "\n"))
     }
     return(result)
   }
