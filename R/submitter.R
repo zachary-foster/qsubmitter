@@ -105,7 +105,7 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
 wait_for_qsub <- function(remote, job_id, quiet = TRUE) {
   wait_time <- 5 # initial wait time
   wait_increase <- 1.5 # Amount to increase wait time by each check
-  max_wait <- 60*10 # do not increase wait time after this point
+  max_wait <- 60*5 # do not increase wait time after this point
 
   for (unused_index in 1:10000) {
     Sys.sleep(wait_time)
