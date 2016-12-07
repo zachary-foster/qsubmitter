@@ -22,6 +22,9 @@
 #' Default: TRUE
 #' @param print_info (\code{logical} of length 1) If \code{TRUE}, information on the job is printed
 #' Default: TRUE
+#' @param echo (\code{logical} of length 1) If \code{TRUE}, the command to be executed is printed
+#' Default: TRUE
+#'
 #' @export
 #'
 #' @examples
@@ -32,7 +35,7 @@
 #' }
 qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
                  runtime_folder = "qsub_records", wait = TRUE, cores = 1,
-                 print_track = TRUE, print_info = TRUE) {
+                 print_track = FALSE, print_info = TRUE, echo = TRUE) {
 
   first_call <- strsplit(command[1], " ")[[1]][1]
   if (is.null(remote_cwd)) {
@@ -43,6 +46,9 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
   } else {
     runtime_path <- file.path(remote_cwd, runtime_folder)
   }
+  # Echo command ----------------------------------------------------------------------------------
+  cat(paste("Command:", command))
+
   # Make remote output directory ------------------------------------------------------------------
   ssh_command(paste("mkdir -p", runtime_path), remote, quiet = TRUE)
 
