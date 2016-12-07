@@ -47,7 +47,7 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
     runtime_path <- file.path(remote_cwd, runtime_folder)
   }
   # Echo command ----------------------------------------------------------------------------------
-  message(paste("Command:", command))
+  message(paste("Command:", paste0(command, collapse = "\n")))
 
   # Make remote output directory ------------------------------------------------------------------
   ssh_command(paste("mkdir -p", runtime_path), remote, quiet = TRUE)
