@@ -24,6 +24,8 @@
 #' Default: TRUE
 #' @param echo (\code{logical} of length 1) If \code{TRUE}, the command to be executed is printed
 #' Default: TRUE
+#' @param stdout (\code{logical} or \code{character} of length 1) If \code{TRUE}, print or save the standard output of the job.
+#' @param stderr (\code{logical} or \code{character} of length 1) If \code{TRUE}, print or save the standard error of the job.
 #'
 #' @export
 #'
@@ -35,7 +37,8 @@
 #' }
 qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
                  runtime_folder = "qsub_records", wait = TRUE, cores = 1,
-                 print_track = FALSE, print_info = TRUE, echo = TRUE) {
+                 print_track = FALSE, print_info = TRUE, echo = TRUE,
+                 stdout = FALSE, stderr = FALSE) {
 
   first_call <- strsplit(command[1], " ")[[1]][1]
   if (is.null(remote_cwd)) {
@@ -94,6 +97,37 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
       message(paste("Duration:", round(run_time), units(run_time)))
     }
   }
+
+  # Get standard error and output -----------------------------------------------------------------
+  remote_stdout_path <- file.path(runtime_path, paste0(first_call, ".o", job_id))
+  if (stdout != FALSE) {
+    if (is.character(stdout) && length(stdout) == 1) {
+      local_stdout_path <- stdout
+      rsync_pull(local_stdout_path, remote_stdout_path, remote, quiet = TRUE)
+      message(paste("Standard output:", local_stdout_path))
+    } else {
+      local_stdout_path <- tempfile()
+      rsync_pull(local_stdout_path, remote_stdout_path, remote, quiet = TRUE)
+      message(paste("Standard output:\n\n", readChar(local_stdout_path, nchars = 100000)))
+    }
+  } else if (print_info) {
+    message(paste("Standard output:", remote_stdout_path))
+  }
+  remote_stderr_path <- file.path(runtime_path, paste0(first_call, ".e", job_id))
+  if (stderr != FALSE) {
+    if (is.character(stderr) && length(stderr) == 1) {
+      local_stderr_path <- stderr
+      rsync_pull(local_stderr_path, remote_stderr_path, remote, quiet = TRUE)
+      message(paste("Standard error:", local_stderr_path))
+    } else {
+      local_stderr_path <- tempfile()
+      rsync_pull(local_stderr_path, remote_stderr_path, remote, quiet = TRUE)
+      message(paste("Standard error:\n\n", readChar(local_stderr_path, nchars = 100000)))
+    }
+  } else if (print_info) {
+    message(paste("Standard error:", remote_stderr_path))
+  }
+
 
   # Return job id ---------------------------------------------------------------------------------
   return(invisible(job_id))
@@ -435,7 +469,7 @@ remote_r <- function(remote, variables = list(), expression, ...) {
 
   exp_substitution <- substitute(expression)
   parsed_expression <- unlist(lapply(2:length(exp_substitution),
-                              function(x) deparse(exp_substitution[[x]])))
+                                     function(x) deparse(exp_substitution[[x]])))
 
   # Make lines for quitting R
   quit_r <- c("quit()")
