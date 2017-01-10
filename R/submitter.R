@@ -40,7 +40,7 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
                  print_track = FALSE, print_info = TRUE, echo = TRUE,
                  stdout = FALSE, stderr = FALSE) {
 
-  first_call <- strsplit(command[1], " ")[[1]][1]
+  first_call <- basename(strsplit(command[1], " ")[[1]][1])
   if (is.null(remote_cwd)) {
     remote_cwd <- ssh_command("echo $HOME", remote, quiet = TRUE)
   }
@@ -71,7 +71,7 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
   # Sumbit job ------------------------------------------------------------------------------------
   qsub_call <- paste("cd", remote_cwd, ";", "qsub", remote_path)
   ssh_result <- ssh_command(qsub_call, remote, quiet = TRUE)
-  job_id <- stringr::str_match(ssh_result[[1]][2], "Your job ([0-9]+) ")[1,2]
+  job_id <- stringr::str_match(ssh_result[[1]][2], "Your job(-array)? ([0-9]+)[ .]")[1,3]
 
   # Rename submission script ----------------------------------------------------------------------
   new_script_name <- paste0(first_call, ".i", job_id, ".sh")
@@ -100,6 +100,14 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
 
   # Get standard error and output -----------------------------------------------------------------
   remote_stdout_path <- file.path(runtime_path, paste0(first_call, ".o", job_id))
+  if (parallel) {
+    paste0("ls -d -1 ", runtime_path, "/*.* ", runtime_path, # list files
+           " | grep '\\.o", job_id, "'", # find files for this job
+           " | xargs tail -n +1", # combine the output of each file
+           " > ", remote_stdout_path) %>% 
+      ssh_command(remote = cgrb)  %>% 
+      `[[`(1)
+  }
   if (stdout != FALSE) {
     if (is.character(stdout) && length(stdout) == 1) {
       local_stdout_path <- stdout
@@ -114,6 +122,14 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
     message(paste("Standard output:", remote_stdout_path))
   }
   remote_stderr_path <- file.path(runtime_path, paste0(first_call, ".e", job_id))
+  if (parallel) {
+    paste0("ls -d -1 ", runtime_path, "/*.* ", runtime_path, # list files
+           " | grep '\\.e", job_id, "'", # find files for this job
+           " | xargs tail -n +1", # combine the output of each file
+           " > ", remote_stderr_path) %>% 
+      ssh_command(remote = cgrb)  %>% 
+      `[[`(1)
+  }
   if (stderr != FALSE) {
     if (is.character(stderr) && length(stderr) == 1) {
       local_stderr_path <- stderr

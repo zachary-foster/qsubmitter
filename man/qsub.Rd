@@ -6,7 +6,8 @@
 \usage{
 qsub(command, remote, parallel = FALSE, remote_cwd = NULL,
   runtime_folder = "qsub_records", wait = TRUE, cores = 1,
-  print_track = TRUE, print_info = TRUE)
+  print_track = FALSE, print_info = TRUE, echo = TRUE, stdout = FALSE,
+  stderr = FALSE)
 }
 \arguments{
 \item{command}{(\code{character}) One or more commands to run}
@@ -36,6 +37,13 @@ Default: TRUE}
 
 \item{print_info}{(\code{logical} of length 1) If \code{TRUE}, information on the job is printed
 Default: TRUE}
+
+\item{echo}{(\code{logical} of length 1) If \code{TRUE}, the command to be executed is printed
+Default: TRUE}
+
+\item{stdout}{(\code{logical} or \code{character} of length 1) If \code{TRUE}, print or save the standard output of the job.}
+
+\item{stderr}{(\code{logical} or \code{character} of length 1) If \code{TRUE}, print or save the standard error of the job.}
 }
 \description{
 This function submits commands to qsub (SGE) over ssh.
