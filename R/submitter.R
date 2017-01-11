@@ -16,7 +16,7 @@
 #' @param wait (\code{logical} of length 1) If \code{TRUE}, the function will wait for all
 #' jobs to complete before exiting.
 #' Default: TRUE
-#' @param cores (\code{numberic}) The number of cores to use.
+#' @param cores (\code{numeric}) The number of cores to use.
 #' Default: 1
 #' @param print_track (\code{logical} of length 1) If \code{TRUE}, the progress of the jobs is periodically printed.
 #' Default: TRUE
@@ -26,7 +26,7 @@
 #' Default: TRUE
 #' @param stdout (\code{logical} or \code{character} of length 1) If \code{TRUE}, print or save the standard output of the job.
 #' @param stderr (\code{logical} or \code{character} of length 1) If \code{TRUE}, print or save the standard error of the job.
-#'
+#' @param max_print (\code{numeric}) The maximum number of characters to print each time something is printed.
 #' @export
 #'
 #' @examples
@@ -38,7 +38,15 @@
 qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
                  runtime_folder = "qsub_records", wait = TRUE, cores = 1,
                  print_track = FALSE, print_info = TRUE, echo = TRUE,
-                 stdout = FALSE, stderr = FALSE) {
+                 stdout = FALSE, stderr = FALSE, max_print = 10000) {
+
+  my_print <- function(content) {
+    content <- paste0(content, collapse = "\n")
+    if (nchar(content) > max_print) {
+      content <- paste0(strtrim(content, max_print), " ...")
+    }
+    message(paste0(content, "\n"))
+  }
 
   first_call <- basename(strsplit(command[1], " ")[[1]][1])
   if (is.null(remote_cwd)) {
@@ -51,7 +59,7 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
   }
   # Echo command ----------------------------------------------------------------------------------
   if (echo) {
-    message(paste("Command:", paste0(command, collapse = "\n")))
+    my_print(paste("Command:\n", paste0(command, collapse = "\n")))
   }
 
   # Make remote output directory ------------------------------------------------------------------
@@ -80,11 +88,11 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
 
   # Print info ------------------------------------------------------------------------------------
   if (print_info) {
-    message(paste0("Job ", job_id," sumbitted."))
-    message(paste("Submission script:", new_remote_path))
-    message(paste("Current working directory:", remote_cwd))
+    my_print(paste0("Job ", job_id," sumbitted."))
+    my_print(paste("Submission script:", new_remote_path))
+    my_print(paste("Current working directory:", remote_cwd))
     start_time <- Sys.time()
-    message(paste0("Started: ", start_time))
+    my_print(paste0("Started: ", start_time))
   }
 
   # Wait for job(s) to complete -------------------------------------------------------------------
@@ -93,55 +101,59 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
     if (print_info) {
       end_time <- Sys.time()
       run_time <- end_time - start_time
-      message(paste("Finished:", end_time))
-      message(paste("Duration:", round(run_time), units(run_time)))
+      my_print(paste("Finished:", end_time))
+      my_print(paste("Duration:", round(run_time), units(run_time)))
     }
   }
 
   # Get standard error and output -----------------------------------------------------------------
+
+
   remote_stdout_path <- file.path(runtime_path, paste0(first_call, ".o", job_id))
   if (parallel) {
-    paste0("ls -d -1 ", runtime_path, "/*.* ", runtime_path, # list files
+    paste0("ls -1 ", runtime_path, # list file names
            " | grep '\\.o", job_id, "'", # find files for this job
+           " | sed 's|^.*$|", runtime_path, "/&|'", # Add directory to names
            " | xargs tail -n +1", # combine the output of each file
-           " > ", remote_stdout_path) %>% 
-      ssh_command(remote = cgrb)  %>% 
+           " > ", remote_stdout_path) %>%
+      ssh_command(remote = cgrb, quiet = TRUE)  %>%
       `[[`(1)
   }
   if (stdout != FALSE) {
     if (is.character(stdout) && length(stdout) == 1) {
       local_stdout_path <- stdout
       rsync_pull(local_stdout_path, remote_stdout_path, remote, quiet = TRUE)
-      message(paste("Standard output:", local_stdout_path))
+      my_print(paste("Standard output:", local_stdout_path))
     } else {
       local_stdout_path <- tempfile()
       rsync_pull(local_stdout_path, remote_stdout_path, remote, quiet = TRUE)
-      message(paste("Standard output:\n\n", readChar(local_stdout_path, nchars = 100000)))
+      my_print(paste("Standard output:\n\n", readChar(local_stdout_path, nchars = 100000)))
     }
   } else if (print_info) {
-    message(paste("Standard output:", remote_stdout_path))
+    my_print(paste("Standard output:", remote_stdout_path))
   }
   remote_stderr_path <- file.path(runtime_path, paste0(first_call, ".e", job_id))
   if (parallel) {
-    paste0("ls -d -1 ", runtime_path, "/*.* ", runtime_path, # list files
+    paste0("ls -1 ", runtime_path, # list file names
            " | grep '\\.e", job_id, "'", # find files for this job
+           " | sed 's|^.*$|", runtime_path, "/&|'", # Add directory to names
            " | xargs tail -n +1", # combine the output of each file
-           " > ", remote_stderr_path) %>% 
-      ssh_command(remote = cgrb)  %>% 
+           " > ", remote_stderr_path) %>%
+      ssh_command(remote = cgrb, quiet = TRUE)  %>%
       `[[`(1)
   }
   if (stderr != FALSE) {
     if (is.character(stderr) && length(stderr) == 1) {
       local_stderr_path <- stderr
       rsync_pull(local_stderr_path, remote_stderr_path, remote, quiet = TRUE)
-      message(paste("Standard error:", local_stderr_path))
+      my_print(paste("Standard error:", local_stderr_path))
     } else {
       local_stderr_path <- tempfile()
       rsync_pull(local_stderr_path, remote_stderr_path, remote, quiet = TRUE)
-      message(paste("Standard error:\n\n", readChar(local_stderr_path, nchars = 100000)))
+      my_print(paste("Standard error:\n\n", readChar(local_stderr_path, nchars = 100000)))
     }
   } else if (print_info) {
-    message(paste("Standard error:", remote_stderr_path))
+    my_print(paste("Standard error:", remote_stderr_path))
   }
 
 
@@ -161,9 +173,9 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
 #'
 #' @return NULL
 wait_for_qsub <- function(remote, job_id, quiet = TRUE) {
-  wait_time <- 5 # initial wait time
-  wait_increase <- 1.5 # Amount to increase wait time by each check
-  max_wait <- 60*5 # do not increase wait time after this point
+  wait_time <- 3 # initial wait time
+  wait_increase <- 1.3 # Amount to increase wait time by each check
+  max_wait <- 60*3 # do not increase wait time after this point
 
   for (unused_index in 1:10000) {
     Sys.sleep(wait_time)
