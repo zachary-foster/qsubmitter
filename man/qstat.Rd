@@ -25,4 +25,3 @@ remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", po
 qstat(remote)
 }
 }
-

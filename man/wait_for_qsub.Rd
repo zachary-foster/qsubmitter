@@ -17,4 +17,3 @@ Default: TRUE}
 \description{
 Wait for qsub job to complete or fail.
 }
-

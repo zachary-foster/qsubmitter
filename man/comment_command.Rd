@@ -18,4 +18,3 @@ Default: Choose quote type based on quote types in command.}
 \description{
 Prepare a command to be the argument of another command.
 }
-

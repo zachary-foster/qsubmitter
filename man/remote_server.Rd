@@ -4,9 +4,8 @@
 \name{remote_server}
 \alias{remote_server}
 \title{Class for remote server}
-\format{\code{\link{R6Class}} object.}
-\usage{
-remote_server
+\format{
+\code{\link{R6Class}} object.
 }
 \value{
 Object of \code{\link{R6Class}} with methods for communication with lightning-viz server.
@@ -14,20 +13,55 @@ Object of \code{\link{R6Class}} with methods for communication with lightning-vi
 \description{
 Stores information needed to connect to a remote user
 }
-\section{Fields}{
-
-\describe{
-\item{\code{server}}{Address of the server}
-
-\item{\code{user}}{User name}
-
-\item{\code{port}}{Port of remote server}
-}}
 \section{Methods}{
 
 \describe{
   \item{new}{Make new instance of this class}
   }
 }
-\keyword{datasets}
 
+\section{Public fields}{
+\if{html}{\out{<div class="r6-fields">}}
+\describe{
+\item{\code{server}}{Address of the server}
+
+\item{\code{user}}{User name}
+
+\item{\code{port}}{Port of remote server}
+}
+\if{html}{\out{</div>}}
+}
+\section{Methods}{
+\subsection{Public methods}{
+\itemize{
+\item \href{#method-new}{\code{remote_server$new()}}
+\item \href{#method-clone}{\code{remote_server$clone()}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-new"></a>}}
+\if{latex}{\out{\hypertarget{method-new}{}}}
+\subsection{Method \code{new()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{remote_server$new(server, user, port = 22)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-clone"></a>}}
+\if{latex}{\out{\hypertarget{method-clone}{}}}
+\subsection{Method \code{clone()}}{
+The objects of this class are cloneable with this method.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{remote_server$clone(deep = FALSE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{deep}}{Whether to make a deep clone.}
+}
+\if{html}{\out{</div>}}
+}
+}
+}

@@ -18,6 +18,8 @@
 #' Default: TRUE
 #' @param cores (\code{numeric}) The number of cores to use.
 #' Default: 1
+#' @param queue (\code{numeric}) The name of the queue to use.
+#' Default: Use any available queue.
 #' @param print_track (\code{logical} of length 1) If \code{TRUE}, the progress of the jobs is periodically printed.
 #' Default: TRUE
 #' @param print_info (\code{logical} of length 1) If \code{TRUE}, information on the job is printed
@@ -36,7 +38,7 @@
 #' qsub(c('echo "test 1" > test1.txt', 'echo "test 2" > test2.txt'), remote, runtime_folder = "~/test/out")
 #' }
 qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
-                 runtime_folder = "qsub_records", wait = TRUE, cores = 1,
+                 runtime_folder = "qsub_records", wait = TRUE, cores = 1, queue = NULL,
                  print_track = FALSE, print_info = TRUE, echo = TRUE,
                  stdout = FALSE, stderr = FALSE, max_print = 10000) {
 
@@ -68,7 +70,7 @@ qsub <- function(command, remote, parallel = FALSE, remote_cwd = NULL,
   # Make submit script ----------------------------------------------------------------------------
   script_text <- make_submit_script(command,  parallel = parallel,
                                     out_file = runtime_path, err_file = runtime_path,
-                                    name = first_call, cores = cores)
+                                    name = first_call, cores = cores, queue = queue)
   script_name <-  paste0("qsub_", random_char(7), "_", first_call, ".sh")
   local_path <- file.path(tempdir(), script_name)
   remote_path <- file.path(runtime_path, script_name)
@@ -228,10 +230,11 @@ wait_for_qsub <- function(remote, job_id, quiet = TRUE) {
 #' @param name (\code{character} of length 1) The job name.
 #' @param cores (\code{numberic}) The number of cores to use.
 #' Default: 1
+#' @param queue (\code{character} of length 1) The queue to use
 #'
 #' @return  (\code{character} of length 1) The text for a qsub submission script.
 make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_file = NULL, name = NULL,
-                               cores = 1) {
+                               cores = 1, queue = NULL) {
   first_call <- strsplit(command[1], " ")[[1]][1]
   if (is.null(out_file)) {
     out_file <- paste0(first_call, "_out")
@@ -266,6 +269,7 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
                      "#$ -V",
                      ifelse(parallel, paste0("#$ -t 1-", length(command), ":1"), ""),
                      ifelse(parallel, 'i=$(expr $SGE_TASK_ID - 1)', ""),
+                     ifelse(is.null(queue), '', paste("#$ -q", queue)),
                      'echo -n "Running on: "',
                      "hostname",
                      'echo "SGE job id: $JOB_ID"',
@@ -298,7 +302,7 @@ make_submit_script <- function(command, parallel = FALSE, out_file = NULL, err_f
 #' \dontrun{
 #'
 #' remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", port = 345)
-#' ssh_command(c('"echo test1", "echo test2"), remote)
+#' ssh_command(c("echo test1", "echo test2"), remote)
 #' }
 ssh_command <- function(command, remote, quiet = FALSE, stderr = FALSE, prompt = NULL, ...) {
   do_one <- function(command) {
@@ -485,6 +489,7 @@ remote_r <- function(remote, variables = list(), expression, ...) {
     lapply(seq_along(variables) + 1,
            function(x) {
              name <- deparse(var_substitution[[x]])
+             assign(name, variables[[x - 1]])
              dump(name, file = temp_path, append = TRUE)
            })
     define_variables <- readLines(temp_path)

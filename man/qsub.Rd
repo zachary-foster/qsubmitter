@@ -4,10 +4,22 @@
 \alias{qsub}
 \title{Submit jobs to qsub over ssh}
 \usage{
-qsub(command, remote, parallel = FALSE, remote_cwd = NULL,
-  runtime_folder = "qsub_records", wait = TRUE, cores = 1,
-  print_track = FALSE, print_info = TRUE, echo = TRUE, stdout = FALSE,
-  stderr = FALSE)
+qsub(
+  command,
+  remote,
+  parallel = FALSE,
+  remote_cwd = NULL,
+  runtime_folder = "qsub_records",
+  wait = TRUE,
+  cores = 1,
+  queue = NULL,
+  print_track = FALSE,
+  print_info = TRUE,
+  echo = TRUE,
+  stdout = FALSE,
+  stderr = FALSE,
+  max_print = 10000
+)
 }
 \arguments{
 \item{command}{(\code{character}) One or more commands to run}
@@ -29,8 +41,11 @@ Default: A unique name with timestamp, random string, and first command in job.}
 jobs to complete before exiting.
 Default: TRUE}
 
-\item{cores}{(\code{numberic}) The number of cores to use.
+\item{cores}{(\code{numeric}) The number of cores to use.
 Default: 1}
+
+\item{queue}{(\code{numeric}) The name of the queue to use.
+Default: Use any available queue.}
 
 \item{print_track}{(\code{logical} of length 1) If \code{TRUE}, the progress of the jobs is periodically printed.
 Default: TRUE}
@@ -44,6 +59,8 @@ Default: TRUE}
 \item{stdout}{(\code{logical} or \code{character} of length 1) If \code{TRUE}, print or save the standard output of the job.}
 
 \item{stderr}{(\code{logical} or \code{character} of length 1) If \code{TRUE}, print or save the standard error of the job.}
+
+\item{max_print}{(\code{numeric}) The maximum number of characters to print each time something is printed.}
 }
 \description{
 This function submits commands to qsub (SGE) over ssh.
@@ -56,4 +73,3 @@ remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", po
 qsub(c('echo "test 1" > test1.txt', 'echo "test 2" > test2.txt'), remote, runtime_folder = "~/test/out")
 }
 }
-

@@ -21,4 +21,3 @@ Default: TRUE}
 \description{
 Copys files to a remote server using rsync.
 }
-

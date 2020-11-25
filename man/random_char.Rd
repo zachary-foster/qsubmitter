@@ -12,4 +12,3 @@ random_char(count = 5)
 \description{
 Make a random character of a specified length
 }
-

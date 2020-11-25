@@ -4,8 +4,7 @@
 \alias{ssh_command}
 \title{Run a commmand on a remote server}
 \usage{
-ssh_command(command, remote, quiet = FALSE, stderr = FALSE, prompt = NULL,
-  ...)
+ssh_command(command, remote, quiet = FALSE, stderr = FALSE, prompt = NULL, ...)
 }
 \arguments{
 \item{command}{(\code{character}) The command to run}
@@ -28,4 +27,10 @@ Defualt: timestamp.}
 \description{
 Run a commmand on a remote server using ssh.
 }
+\examples{
+\dontrun{
 
+remote <- remote_server$new(server = "shell.somewhere.edu", user = "joeshmo", port = 345)
+ssh_command(c("echo test1", "echo test2"), remote)
+}
+}

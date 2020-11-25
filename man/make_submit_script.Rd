@@ -4,8 +4,15 @@
 \alias{make_submit_script}
 \title{Make qsub submission script}
 \usage{
-make_submit_script(command, parallel = FALSE, out_file = NULL,
-  err_file = NULL, name = NULL, cores = 1)
+make_submit_script(
+  command,
+  parallel = FALSE,
+  out_file = NULL,
+  err_file = NULL,
+  name = NULL,
+  cores = 1,
+  queue = NULL
+)
 }
 \arguments{
 \item{command}{(\code{character}) One or more commands to run}
@@ -20,6 +27,8 @@ make_submit_script(command, parallel = FALSE, out_file = NULL,
 
 \item{cores}{(\code{numberic}) The number of cores to use.
 Default: 1}
+
+\item{queue}{(\code{character} of length 1) The queue to use}
 }
 \value{
 (\code{character} of length 1) The text for a qsub submission script.
@@ -27,4 +36,3 @@ Default: 1}
 \description{
 Makes the text for a qsub submission script.
 }
-

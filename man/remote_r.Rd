@@ -34,4 +34,3 @@ remote_r(remote, list(a, f), {
 })
 }
 }
-
